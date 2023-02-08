@@ -1,22 +1,27 @@
-version: '3.3'
+version: '3.7'
 services:
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.5.0
+    image: elasticsearch:7.14.2
     container_name: elasticsearch
     restart: always
     ports:
-      - 9200:9200
+      - 10.100.3.161:9200:9200
     environment:
-      - discovery.type=single-node
-      - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "TAKE_FILE_OWNERSHIP=true" #volumes 挂载权限 如果不想要挂载es文件改配置可以删除
+      - "discovery.type=single-node" #单机模式启动
+      - "TZ=Asia/Shanghai" # 设置时区
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g" # 设置jvm内存大小
+    volumes:
+      - ./elasticsearch/logs:/usr/share/elasticsearch/logs
+      - ./elasticsearch/data:/usr/share/elasticsearch/data
+ 
     ulimits:
       memlock:
         soft: -1
         hard: -1
-  oap:
-    image: apache/skywalking-oap-server:7.0.0-es7
-    container_name: oap
+  skywalking-oap-server:
+    image: apache/skywalking-oap-server:9.3.0
+    container_name: skywalking-oap-server
     depends_on:
       - elasticsearch
     links:
@@ -26,17 +31,23 @@ services:
       - 11800:11800
       - 12800:12800
     environment:
-      SW_STORAGE: elasticsearch7
+      SW_STORAGE: elasticsearch  # 指定ES版本
       SW_STORAGE_ES_CLUSTER_NODES: elasticsearch:9200
-  ui:
-    image: apache/skywalking-ui:7.0.0
-    container_name: ui
+      TZ: Asia/Shanghai
+    #volumes:
+     #- ./oap/conf:/skywalking/config
+     #- ./oap/conf/application.yml:/skywalking/config/application.yml
+     #- ./oap/conf/alarm-settings.yml:/skywalking/config/alarm-settings.yml
+  skywalking-ui:
+    image: apache/skywalking-ui:9.3.0
+    container_name: skywalking-ui
     depends_on:
-      - oap
+      - skywalking-oap-server
     links:
-      - oap
+      - skywalking-oap-server
     restart: always
     ports:
-      - 8080:8080
+      - 10.100.3.161:8080:8080
     environment:
-      SW_OAP_ADDRESS: oap:12800
+      SW_OAP_ADDRESS: http://skywalking-oap-server:12800
+      TZ: Asia/Shanghai
